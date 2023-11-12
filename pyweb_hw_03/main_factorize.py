@@ -1,5 +1,5 @@
 import time
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Pool, current_process, cpu_count
 import sys
 
 
@@ -70,6 +70,16 @@ def process_test(*numbers):
     return total_result
 
 
+@measure_time
+def pool_process_test(*numbers):
+    print(f"Count CPU: {cpu_count()}; numbers: {numbers}")
+
+    with Pool(cpu_count()) as pool:
+        result = pool.map(factorize, numbers)
+
+    return result
+
+
 def check_answers(a, b, c, d):
     assert a == [1, 2, 4, 8, 16, 32, 64, 128]
     assert b == [1, 3, 5, 15, 17, 51, 85, 255]
@@ -84,30 +94,51 @@ if __name__ == '__main__':
     print(f"Compute next numbers: {list_numbers}")
 
     print('---- Sync test ----')
-    a, b, c, d, *_ = sync_test(*list_numbers)
+    a, b, c, d = sync_test(*list_numbers)
     check_answers(a, b, c, d)
 
     print('---- Process test ----')
-    a, b, c, d, *_  = process_test(*list_numbers)
+    a, b, c, d = process_test(*list_numbers)
     check_answers(a, b, c, d)
 
+    print('---- Pool process test ----')
+    a, b, c, d  = pool_process_test(*list_numbers)
+    check_answers(a, b, c, d)
+
+    # Start compare sync work and process work
+    # Compute next numbers: [128, 255, 99999, 10651060]
     # ---- Sync test ----
-    # Total time: sync_test - 0.7937 s
+    # Total time: sync_test - 0.8198 s
     # ---- Process test ----
-    # Total time: process_test - 0.8366 s
+    # Total time: process_test - 0.8582 s
+    # ---- Pool process test ----
+    # Count CPU: 6; numbers: (128, 255, 99999, 10651060)
+    # Total time: pool_process_test - 0.8514 s
+
+    print('Test with very long numbers')
+    long_numbers = [100_000_000, 200_000_000, 400_000_000, 300_000_000, 150_000_000, 50_000, 135_000_000]
 
 
     print('Very long numbers test: sync test')
-    long_numbers = [100_000_000, 200_000_000, 400_000_000, 300_000_000, 150_000_000]
     sync_test(*long_numbers)
 
     print('Very long numbers test: process test')
     process_test(*long_numbers)
 
-    # Very long numbers test: sync test
-    # Total time: sync_test - 82.0753 s
-    # Very long numbers test: process test
-    # Total time: process_test - 36.0549 s
+    print('Very long numbers test: pool process test')
+    pool_process_test(*long_numbers)
 
+    # Result:
+    # Test with very long numbers
+    # Very long numbers test: sync test
+    # Total time: sync_test - 92.3915 s
+    # Very long numbers test: process test
+    # Total time: process_test - 58.9367 s
+    # Very long numbers test: pool process test
+    # Count CPU: 6; numbers: (100000000, 200000000, 400000000, 300000000, 150000000, 50000, 135000000)
+    # Total time: pool_process_test - 36.8177 s
+
+
+    
 
 

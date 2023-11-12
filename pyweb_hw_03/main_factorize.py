@@ -1,70 +1,73 @@
 import time
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Queue
 import sys
+
 
 def measure_time(func):
 
     def inner(*args, **kwargs):
-        times = []
 
-        for _ in range(10):
-            start_time = time.perf_counter()       
-            result= func(*args, **kwargs)
-            stop_time = time.perf_counter()
-            delta_time = stop_time - start_time
-            times.append(delta_time)
-
-            
-        avg_time = sum(times) / len(times)
-        print(f'Total average time:{func.__name__} - {round(avg_time, 4)} s')
+        start_time = time.perf_counter()  
+        result = func(*args, **kwargs)
+        stop_time = time.perf_counter()
+        delta_time = stop_time - start_time
+        print(f'Total time: {func.__name__} - {round(delta_time, 4)} s')
 
         return result
     
     return inner
 
 
+def factorize(number):
+    result = list()
+    for i in range(1, number+1):
+        if number % i == 0:
+            result.append(i)
 
-def factorize(*numbers):
+    return result
+
+
+@measure_time
+def sync_test(*numbers):
     total_result= list()
     for number in numbers:
-        result = list()
-
-        for i in range(1, number+1):
-
-            if number % i == 0:
-                result.append(i)
-        
+        result = factorize(number)
         total_result.append(result)
 
     return total_result
 
 
-def sync_test(numbers, test=10):
-    times = []
-
-    for i in range(test):
-        start_time = time.perf_counter()       
-        result = factorize(*numbers)
-        stop_time = time.perf_counter()
-        delta_time = stop_time - start_time
-        times.append(delta_time)
-        # print(f'Test_{i} -  Sync time: {round(delta_time, 4)} s')
-
-    avg_time = sum(times) / len(times)
-    print(f'Average -  Sync time: {round(avg_time, 4)} s')
-    return result
+def process_factorize(q_rcv: Queue, q_snd: Queue):
+    number = q_rcv.get()
+    result = list()
+    for i in range(1, number+1):
+        if number % i == 0:
+            result.append(i)
+    
+    q_snd.put(result)
 
 
+@measure_time
 def process_test(*numbers):
     total_result = list()
 
-    process = []
+    q_snd = Queue()
+    q_rcv = Queue()
+
+    processes = []
+
     for number in numbers:
         
-        pr = Process(target=factorize, args=(numbers, ))
+        pr = Process(target=process_factorize, args=(q_snd, q_rcv))
+        processes.append(pr)
 
+        pr.start()
+        q_snd.put(number)
 
+    [pr.join() for pr in processes]
+    total_result = [q_rcv.get() for _ in processes]
 
+    return total_result
 
 
 def check_answers(a, b, c, d):
@@ -75,11 +78,36 @@ def check_answers(a, b, c, d):
 
 
 if __name__ == '__main__':
-    list_numbers = [128, 255, 99999, 10651060]
+    print('Start compare sync work and process work')
 
-    a, b, c, d  = sync_test(list_numbers)
+    list_numbers = [128, 255, 99_999, 10_651_060]
+    print(f"Compute next numbers: {list_numbers}")
+
+    print('---- Sync test ----')
+    a, b, c, d, *_ = sync_test(*list_numbers)
     check_answers(a, b, c, d)
 
+    print('---- Process test ----')
+    a, b, c, d, *_  = process_test(*list_numbers)
+    check_answers(a, b, c, d)
+
+    # ---- Sync test ----
+    # Total time: sync_test - 0.7937 s
+    # ---- Process test ----
+    # Total time: process_test - 0.8366 s
+
+
+    print('Very long numbers test: sync test')
+    long_numbers = [100_000_000, 200_000_000, 400_000_000, 300_000_000, 150_000_000]
+    sync_test(*long_numbers)
+
+    print('Very long numbers test: process test')
+    process_test(*long_numbers)
+
+    # Very long numbers test: sync test
+    # Total time: sync_test - 82.0753 s
+    # Very long numbers test: process test
+    # Total time: process_test - 36.0549 s
 
 
 

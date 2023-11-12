@@ -1,5 +1,5 @@
 import time
-from multiprocessing import Process, Queue, Pool, current_process, cpu_count
+from multiprocessing import Process, Queue, Pool, cpu_count
 import sys
 
 
@@ -139,6 +139,6 @@ if __name__ == '__main__':
     # Total time: pool_process_test - 36.8177 s
 
 
-    
+
 
 

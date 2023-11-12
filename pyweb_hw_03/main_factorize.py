@@ -105,6 +105,7 @@ if __name__ == '__main__':
     a, b, c, d  = pool_process_test(*list_numbers)
     check_answers(a, b, c, d)
 
+    # Result:
     # Start compare sync work and process work
     # Compute next numbers: [128, 255, 99999, 10651060]
     # ---- Sync test ----
